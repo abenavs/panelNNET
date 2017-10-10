@@ -308,170 +308,174 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
   ###############
   #start iterating
   while(iter < maxit & stopcounter < maxstopcounter){
-    oldpar <- list(parlist=parlist, hlayers=hlayers, grads=grads
-      , yhat = yhat, mse = mse, mseold = mseold, loss = loss, updates = updates, G2 = G2
-      , msevec = msevec, lossvec = lossvec)
-    #Start epoch
-    #Assign batches
-    batchid <- sample(1:nrow(X)%/%batchsize +1)
-    if (min(table(batchid))<(batchsize/2)){#Deal with orphan batches
-      batchid[batchid == max(batchid)] <- sample(1:(max(batchid) - 1), min(table(batchid)), replace = TRUE)
-    }
-    for (bat in 1:max(batchid)) { # run minibatch
-      curBat <- which(batchid == bat)
-      hlay <- hlayers#h lay may have experienced dropout, as distinct from hlayers
-      # if using dropout, generate a droplist
-      if (dropout_hidden < 1){
-        droplist <- lapply(hlayers, function(x){
-          todrop <- as.logical(rbinom(ncol(x), 1, dropout_hidden))
-          if (all(todrop==FALSE)){#ensure that at least one unit is present
+    if (has_keypress_support()) { #listen for the "Q" key
+        k = keypress(block=FALSE)
+      oldpar <- list(parlist=parlist, hlayers=hlayers, grads=grads
+        , yhat = yhat, mse = mse, mseold = mseold, loss = loss, updates = updates, G2 = G2
+        , msevec = msevec, lossvec = lossvec)
+      #Start epoch
+      #Assign batches
+      batchid <- sample(1:nrow(X)%/%batchsize +1)
+      if (min(table(batchid))<(batchsize/2)){#Deal with orphan batches
+        batchid[batchid == max(batchid)] <- sample(1:(max(batchid) - 1), min(table(batchid)), replace = TRUE)
+      }
+      for (bat in 1:max(batchid)) { # run minibatch
+        curBat <- which(batchid == bat)
+        hlay <- hlayers#h lay may have experienced dropout, as distinct from hlayers
+        # if using dropout, generate a droplist
+        if (dropout_hidden < 1){
+          droplist <- lapply(hlayers, function(x){
+            todrop <- as.logical(rbinom(ncol(x), 1, dropout_hidden))
+            if (all(todrop==FALSE)){#ensure that at least one unit is present
+              todrop[sample(1:length(todrop))] <- TRUE
+            }
+            return(todrop)
+          })
+          # remove the parametric terms from dropout contention
+          droplist[[nlayers]][1:ncol(param)] <- TRUE
+          # dropout from the input layer
+          todrop <- rbinom(ncol(X), 1, dropout_input)
+          if (all(todrop==FALSE)){# ensure that at least one unit is present
             todrop[sample(1:length(todrop))] <- TRUE
           }
-          return(todrop)
-        })
-        # remove the parametric terms from dropout contention
-        droplist[[nlayers]][1:ncol(param)] <- TRUE
-        # dropout from the input layer
-        todrop <- rbinom(ncol(X), 1, dropout_input)
-        if (all(todrop==FALSE)){# ensure that at least one unit is present
-          todrop[sample(1:length(todrop))] <- TRUE
+          dropinp <- as.logical(todrop)
+          for (i in 1:nlayers){
+            hlay[[i]] <- hlay[[i]][,droplist[[i]], drop = FALSE]
+          }
+          Xd <- X[,dropinp]
+        } else {Xd <- X; droplist = NULL}
+        # before updating gradients, compute square of gradients for RMSprop
+        if (RMSprop ==  TRUE){oldG2 <- lapply(grads, function(x){.9*x^2})} #old G2 term 
+        # Get updated gradients
+        grads <- calc_grads(plist = parlist, hlay = hlay
+          , yhat = yhat[curBat], curBat = curBat, droplist = droplist, dropinp = dropinp)
+        # Calculate updates to parameters based on gradients and learning rates
+        if (RMSprop == TRUE){
+          newG2 <- lapply(grads, function(x){.1*x^2}) #new gradient is squared and multiplied by .1
+          G2 <- mapply('+', newG2, oldG2)
+          # updates to beta
+          uB <- LR/sqrt(G2[[length(G2)]]+1e-10) * grads[[length(grads)]]
+          updates$beta_param <- uB[1:length(parlist$beta_param)]
+          updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
+          # updates to lower layers
+          NL <- nlayers + as.numeric(!is.null(convolutional))
+          for(i in NL:1){
+            updates[[i]] <- LR/sqrt(G2[[i]]+1e-10) * grads[[i]]
+          }
+        } else { #if RMSprop == FALSE
+          uB <- LR * grads[[length(grads)]]
+          updates$beta_param <- uB[1:length(parlist$beta_param)]
+          updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
+          NL <- nlayers + as.numeric(!is.null(convolutional))
+          for(i in NL:1){
+            updates[[i]] <- LR * grads[[i]]
+          }
         }
-        dropinp <- as.logical(todrop)
-        for (i in 1:nlayers){
-          hlay[[i]] <- hlay[[i]][,droplist[[i]], drop = FALSE]
+        # weight decay
+        if (lam != 0) {
+          wd <- lapply(parlist, function(x){x*lam*LR})
+          updates <- mapply("+", updates, wd)
+          # don't update the pass-through weights for the non-time-varying variables when using conv 
+          if (!is.null(convolutional)){
+            updates[[1]][,colnames(updates[[1]]) %ni% convolutional$topology] <- 0
+          }
         }
-        Xd <- X[,dropinp]
-      } else {Xd <- X; droplist = NULL}
-      # before updating gradients, compute square of gradients for RMSprop
-      if (RMSprop ==  TRUE){oldG2 <- lapply(grads, function(x){.9*x^2})} #old G2 term 
-      # Get updated gradients
-      grads <- calc_grads(plist = parlist, hlay = hlay
-        , yhat = yhat[curBat], curBat = curBat, droplist = droplist, dropinp = dropinp)
-      # Calculate updates to parameters based on gradients and learning rates
-      if (RMSprop == TRUE){
-        newG2 <- lapply(grads, function(x){.1*x^2}) #new gradient is squared and multiplied by .1
-        G2 <- mapply('+', newG2, oldG2)
-        # updates to beta
-        uB <- LR/sqrt(G2[[length(G2)]]+1e-10) * grads[[length(grads)]]
-        updates$beta_param <- uB[1:length(parlist$beta_param)]
-        updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
-        # updates to lower layers
-        NL <- nlayers + as.numeric(!is.null(convolutional))
-        for(i in NL:1){
-          updates[[i]] <- LR/sqrt(G2[[i]]+1e-10) * grads[[i]]
+        # Update parameters from update list
+        parlist <- mapply('-', parlist, updates)
+        # Update hidden layers
+        hlayers <- calc_hlayers(parlist, X = X, param = param, fe_var = fe_var, 
+                                nlayers = nlayers, convolutional = convolutional, activ = activation)
+        # OLS trick!
+        if (OLStrick == TRUE){
+          parlist <- OLStrick_function(parlist = parlist, hidden_layers = hlayers, y = y
+            , fe_var = fe_var, lam = lam, parapen = parapen)
         }
-      } else { #if RMSprop == FALSE
-        uB <- LR * grads[[length(grads)]]
-        updates$beta_param <- uB[1:length(parlist$beta_param)]
-        updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
-        NL <- nlayers + as.numeric(!is.null(convolutional))
-        for(i in NL:1){
-          updates[[i]] <- LR * grads[[i]]
+        #update yhat
+        yhat <- getYhat(parlist, hlay = hlayers)
+        mse <- mean((y-yhat)^2)
+        msevec <- append(msevec, mse)
+        pl_for_lossfun <- parlist[!grepl('beta', names(parlist))]
+        if (!is.null(convolutional)){ # coerce the convolutional parameters to a couple of vectors to avoid double-counting in the loss
+          convolutional$convParms <- foreach(i = 1:convolutional$Nconv) %do% {
+            idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
+            rowMeans(foreach(j = idx, .combine = cbind) %do% {x <- pl_for_lossfun[[1]][,j]; x[x!=0][-1]})
+          }
+          convolutional$convBias <- foreach(i = 1:convolutional$Nconv, .combine = c) %do% {
+            idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
+            mean(pl_for_lossfun[[1]][1,idx])
+          }
+          pl_for_lossfun[[1]] <- c(unlist(convolutional$convParms, convolutional$convBias))
         }
-      }
-      # weight decay
-      if (lam != 0) {
-        wd <- lapply(parlist, function(x){x*lam*LR})
-        updates <- mapply("+", updates, wd)
-        # don't update the pass-through weights for the non-time-varying variables when using conv 
-        if (!is.null(convolutional)){
-          updates[[1]][,colnames(updates[[1]]) %ni% convolutional$topology] <- 0
-        }
-      }
-      # Update parameters from update list
-      parlist <- mapply('-', parlist, updates)
-      # Update hidden layers
-      hlayers <- calc_hlayers(parlist, X = X, param = param, fe_var = fe_var, 
-                              nlayers = nlayers, convolutional = convolutional, activ = activation)
-      # OLS trick!
-      if (OLStrick == TRUE){
-        parlist <- OLStrick_function(parlist = parlist, hidden_layers = hlayers, y = y
-          , fe_var = fe_var, lam = lam, parapen = parapen)
-      }
-      #update yhat
-      yhat <- getYhat(parlist, hlay = hlayers)
+        loss <- mse + lam*sum(c(parlist$beta_param*parapen
+                                , parlist$beta
+                                , unlist(sapply(pl_for_lossfun, as.numeric)))^2
+        )
+        lossvec <- append(lossvec, loss)
+      } #finishes epoch
+
+      #Finished epoch.  Assess whether MSE has increased and revert if so
       mse <- mean((y-yhat)^2)
-      msevec <- append(msevec, mse)
-      pl_for_lossfun <- parlist[!grepl('beta', names(parlist))]
-      if (!is.null(convolutional)){ # coerce the convolutional parameters to a couple of vectors to avoid double-counting in the loss
-        convolutional$convParms <- foreach(i = 1:convolutional$Nconv) %do% {
-          idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
-          rowMeans(foreach(j = idx, .combine = cbind) %do% {x <- pl_for_lossfun[[1]][,j]; x[x!=0][-1]})
-        }
-        convolutional$convBias <- foreach(i = 1:convolutional$Nconv, .combine = c) %do% {
-          idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
-          mean(pl_for_lossfun[[1]][1,idx])
-        }
-        pl_for_lossfun[[1]] <- c(unlist(convolutional$convParms, convolutional$convBias))
-      }
       loss <- mse + lam*sum(c(parlist$beta_param*parapen
                               , parlist$beta
                               , unlist(sapply(pl_for_lossfun, as.numeric)))^2
       )
-      lossvec <- append(lossvec, loss)
-    } #finishes epoch
-
-    #Finished epoch.  Assess whether MSE has increased and revert if so
-    mse <- mean((y-yhat)^2)
-    loss <- mse + lam*sum(c(parlist$beta_param*parapen
-                            , parlist$beta
-                            , unlist(sapply(pl_for_lossfun, as.numeric)))^2
-    )
-    #If loss increases...
-    if (oldpar$loss <= loss){
-      parlist <- oldpar$parlist
-      updates <- oldpar$updates
-      G2 <- oldpar$G2
-      hlayers <- oldpar$hlayers
-      grads <- oldpar$grads
-      yhat <- oldpar$yhat
-      mse <- oldpar$mse
-      stopcounter <- stopcounter + 1
-      loss <- oldpar$loss
-      msevec <- oldpar$msevec
-      lossvec <- oldpar$lossvec
-      LR <- LR/2
-      if(verbose == TRUE){
-        print(paste0("Loss increased.  halving LR.  Stopcounter now at ", stopcounter))
-      }
-    } else { # if loss doesn't increase
-      LRvec[iter+1] <- LR <- LR*gravity      #gravity...
-      D <- oldpar$loss - loss
-      if (D < convtol){
-        stopcounter <- stopcounter +1
-        if(verbose == TRUE){print(paste('slowing!  Stopcounter now at ', stopcounter))}
-      } else { # reset stopcounter if not slowing per convergence tolerance
-        stopcounter <-0
-      }
-      if  (verbose == TRUE & iter %% report_interval == 0){
-        writeLines(paste0(
-          "*******************************************\n"
-          , 'Lambda = ',lam, "\n"
-          , "Hidden units -> ",paste(hidden_units, collapse = ' '), "\n"
-          , " Batch size is ", batchsize, " \n"
-          , " Completed ", iter, " epochs. \n"
-          , " Completed ", bat, " batches in current epoch. \n"
-          , "mse is ",mse, "\n"
-          , "last mse was ", oldpar$mse, "\n"
-          , "difference is ", oldpar$mse - mse, "\n"
-          , "loss is ",loss, "\n"
-          , "last loss was ", oldpar$loss, "\n"
-          , "difference is ", oldpar$loss - loss, "\n"
-          , "input layer dropout probability: ", dropout_input, "\n"
-          , "hidden layer dropout probability: ", dropout_hidden, "\n"
-          , "*******************************************\n"  
-        ))
-        par(mfrow = c(3,2))
-        plot(y, yhat, col = rgb(1,0,0,.5), pch = 19, main = 'in-sample performance')
-        abline(0,1)
-        plot(LRvec, type = 'b', main = 'learning rate history')
-        plot(msevec, type = 'l', main = 'all epochs', ylim = range(c(msevec), na.rm = TRUE))
-        plot(msevec[(1+(iter)*max(batchid)):length(msevec)], type = 'l', ylab = 'mse', main = 'Current epoch')
-        plot(lossvec, type = 'l', main = 'all epochs')
-        plot(lossvec[(1+(iter)*max(batchid)):length(lossvec)], type = 'l', ylab = 'loss', main = 'Current epoch')
-      } # fi verbose 
-    } # fi if loss increases 
-    iter <- iter+1
+      #If loss increases...
+      if (oldpar$loss <= loss){
+        parlist <- oldpar$parlist
+        updates <- oldpar$updates
+        G2 <- oldpar$G2
+        hlayers <- oldpar$hlayers
+        grads <- oldpar$grads
+        yhat <- oldpar$yhat
+        mse <- oldpar$mse
+        stopcounter <- stopcounter + 1
+        loss <- oldpar$loss
+        msevec <- oldpar$msevec
+        lossvec <- oldpar$lossvec
+        LR <- LR/2
+        if(verbose == TRUE){
+          print(paste0("Loss increased.  halving LR.  Stopcounter now at ", stopcounter))
+        }
+      } else { # if loss doesn't increase
+        LRvec[iter+1] <- LR <- LR*gravity      #gravity...
+        D <- oldpar$loss - loss
+        if (D < convtol){
+          stopcounter <- stopcounter +1
+          if(verbose == TRUE){print(paste('slowing!  Stopcounter now at ', stopcounter))}
+        } else { # reset stopcounter if not slowing per convergence tolerance
+          stopcounter <-0
+        }
+        if  (verbose == TRUE & iter %% report_interval == 0){
+          writeLines(paste0(
+            "*******************************************\n"
+            , 'Lambda = ',lam, "\n"
+            , "Hidden units -> ",paste(hidden_units, collapse = ' '), "\n"
+            , " Batch size is ", batchsize, " \n"
+            , " Completed ", iter, " epochs. \n"
+            , " Completed ", bat, " batches in current epoch. \n"
+            , "mse is ",mse, "\n"
+            , "last mse was ", oldpar$mse, "\n"
+            , "difference is ", oldpar$mse - mse, "\n"
+            , "loss is ",loss, "\n"
+            , "last loss was ", oldpar$loss, "\n"
+            , "difference is ", oldpar$loss - loss, "\n"
+            , "input layer dropout probability: ", dropout_input, "\n"
+            , "hidden layer dropout probability: ", dropout_hidden, "\n"
+            , "*******************************************\n"  
+          ))
+          par(mfrow = c(3,2))
+          plot(y, yhat, col = rgb(1,0,0,.5), pch = 19, main = 'in-sample performance')
+          abline(0,1)
+          plot(LRvec, type = 'b', main = 'learning rate history')
+          plot(msevec, type = 'l', main = 'all epochs', ylim = range(c(msevec), na.rm = TRUE))
+          plot(msevec[(1+(iter)*max(batchid)):length(msevec)], type = 'l', ylab = 'mse', main = 'Current epoch')
+          plot(lossvec, type = 'l', main = 'all epochs')
+          plot(lossvec[(1+(iter)*max(batchid)):length(lossvec)], type = 'l', ylab = 'loss', main = 'Current epoch')
+        } # fi verbose 
+      } # fi if loss increases 
+      iter <- iter+1
+      if(k=="Q"){print("stopped!"); break}
+    }
   } #closes the while loop
   #If trained with dropput, weight the layers by expectations
   if(dropout_hidden<1){
