@@ -464,8 +464,9 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
             , "hidden layer dropout probability: ", dropout_hidden, "\n"
             , "*******************************************\n"  
           ))
-          if (has_keypress_support()) { #listen for the "Q" key
-          print('hit Q to exit!')
+          if (has_keypress_support()) { #reminder
+            print('hit Q to exit!')
+          }
           par(mfrow = c(3,2))
           plot(y, yhat, col = rgb(1,0,0,.5), pch = 19, main = 'in-sample performance')
           abline(0,1)
