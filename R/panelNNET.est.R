@@ -309,7 +309,8 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
   #start iterating
   while(iter < maxit & stopcounter < maxstopcounter){
     if (has_keypress_support()) { #listen for the "Q" key
-        k = keypress(block=FALSE)
+      print('hit Q to exit!')
+      k = keypress(block=FALSE)
       oldpar <- list(parlist=parlist, hlayers=hlayers, grads=grads
         , yhat = yhat, mse = mse, mseold = mseold, loss = loss, updates = updates, G2 = G2
         , msevec = msevec, lossvec = lossvec)
@@ -463,6 +464,8 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
             , "hidden layer dropout probability: ", dropout_hidden, "\n"
             , "*******************************************\n"  
           ))
+          if (has_keypress_support()) { #listen for the "Q" key
+          print('hit Q to exit!')
           par(mfrow = c(3,2))
           plot(y, yhat, col = rgb(1,0,0,.5), pch = 19, main = 'in-sample performance')
           abline(0,1)
