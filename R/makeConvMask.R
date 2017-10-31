@@ -9,14 +9,15 @@ makeMask <- function(X, topology, span, step, Nconv){
 # span <- convolutional$span <- 2
 # step <- convolutional$step
 # Nconv <- convolutional$Nconv
-  stops <- seq(span+1, (max(topology, na.rm = T)-1), by = step)
+  # subset the topology down to time-varying variables
+  topologyTP <- topology[!is.na(topology)]
+  # centers of spans
+  stops <- seq(span+1, (max(topologyTP, na.rm = T)-1), by = step)
   # make a matrix of zeros, of dimension equal to the number of inputs by the number of outputs (which is a function of the span)
-  TVmask <- foreach(i = 1:length(topology), .combine = rbind) %do% {
-    interval <- topology[i] + span * c(-1, 1)
+  TVmask <- foreach(i = 1:length(topologyTP), .combine = rbind) %do% {
+    interval <- topologyTP[i] + span * c(-1, 1)
     as.numeric(stops>= interval[1] & stops<=interval[2])
   }
-  # First compute which rows of the time-varying mask are NAs
-  NArows <- apply(TVmask, 1, function(x){any(is.na(x))})
   # Variables that don't have a topology should be NA -- they will get set to zero
   TVmask[is.na(TVmask)] <- 0
   colnames(TVmask) <- stops
@@ -32,20 +33,22 @@ makeMask <- function(X, topology, span, step, Nconv){
   neighbor_repadded <- c(rep(0, endpos - endpos_neighbor), neighbor, rep(0, nrow(TVmask) - endpos))
   # and re-insert it
   TVmask[,as.character(max(stops))] <- neighbor_repadded
-  # make a diagonal matrix for the non-TV terms
-  NTVmask <- diag(rep(1, length(topology[is.na(topology)])))
-  colnames(NTVmask) <- colnames(X)[is.na(topology)]
   # replicate the TVmask Nconv times
   TVmask <- t(do.call(rbind, replicate(Nconv, t(TVmask), simplify=FALSE)))
-  # combine them.  first add on a zero matrix to the left of the TV matrix
-  mask <- cbind(TVmask, 
-                matrix(rep(0, ncol(NTVmask)*nrow(TVmask)), ncol = ncol(NTVmask))
-                )
-  # next add the NTVmask entries into the NArows
-  mask[NArows,(ncol(TVmask)+1):ncol(mask)] <- NTVmask
-  colnames(mask)[(ncol(TVmask)+1):ncol(mask)] <- colnames(NTVmask)
-  rownames(mask) <- colnames(X)
-  mask <- rbind(c(rep(1, ncol(TVmask)), rep(0, ncol(NTVmask))), mask)
-  return(mask)
+  
+  rownames(TVmask) <- topologyTP
+  colnames(TVmask) <- rep(stops, Nconv)
+  return(TVmask)
 }
 
+# cruft left over from when the time0-varing variables were part of this. 
+# new verison will have them coming in after all of the convoluting
+# # combine them.  first add on a zero matrix to the left of the TV matrix
+# mask <- cbind(TVmask, 
+#               matrix(rep(0, ncol(NTVmask)*nrow(TVmask)), ncol = ncol(NTVmask))
+# )
+# # next add the NTVmask entries into the NArows
+# mask[NArows,(ncol(TVmask)+1):ncol(mask)] <- NTVmask
+# colnames(mask)[(ncol(TVmask)+1):ncol(mask)] <- colnames(NTVmask)
+# rownames(mask) <- colnames(X)
+# mask <- rbind(c(rep(1, ncol(TVmask)), rep(0, ncol(NTVmask))), mask)

@@ -1,5 +1,5 @@
 
-calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers = nlayers, convolutional, activation){
+calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers = nlayers, convolutional, activation, clusters = NULL){
   if (activation == 'tanh'){
     activ <- tanh
   }
@@ -13,16 +13,33 @@ calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers
     activ <- lrelu
   }
   hlayers <- vector('list', nlayers)
-  for (i in 1:(nlayers + !is.null(convolutional))){
-    if (i == 1){D <- X} else {D <- hlayers[[i-1]]}
-    D <- cbind(1, D) #add bias
-    # make sure that the time-invariant variables pass through the convolutional layer without being activated
-    if (is.null(convolutional) | i > 1){
-      hlayers[[i]] <- activ(D %*% parlist[[i]])        
-    } else {
-      HL <- D %*% parlist[[i]]
-      HL[,1:(convolutional$N_TV_layers * convolutional$Nconv)] <- activ(HL[,1:(convolutional$N_TV_layers * convolutional$Nconv)])
-      hlayers[[i]] <- HL
+  # number of layers
+  NL <- nlayers
+  if (!is.null(convolutional)){NL <- NL+1}
+  for (i in 1:NL){
+    if (!is.null(convolutional) & i < 3){
+      if (i == 1){
+        D <- cbind(1, X[, !is.na(topology)])
+        hlayers[[i]] <- activ(D %*% parlist$temporal)
+      } else { # implicitly if i == 2
+        if (!is.null(clusters)){ #if clusters, do the KRexpansion, and then tack on the time-invariant terms
+          facdum <- model.matrix(~ clusters$spatialClusters - 1) # matrix of dummies for the spatial clusters
+          TV <- t(KhatriRao(t(hlayers[[i-1]]), t(facdum)))
+          NTV <- X[, is.na(topology)]
+          hlayers[[i]] <- activ(cbind(1, TV, NTV) %*% parlist$spatial)
+        } else { # if no spatial convolution
+          TV <- hlayers[[i-1]]
+          NTV <- X[, is.na(topology)]
+          hlayers[[i]] <- activ(eigenMapMatMult(as.matrix(cbind(1, TV, NTV)), as.matrix(parlist[[i]])))
+        }
+      }
+    } else { # if not convolutional OR i > 3
+      D <- cbind(1, hlayers[[i-1]])
+      if ("dgcMatrix" %in% c(unlist(class(D)), unlist(class(parlist[[i]])))){ #if/else sparse, Matrix vs RcppEigen
+        hlayers[[i]] <- activ(D %*% parlist[[i]])
+      } else {
+        hlayers[[i]] <- activ(eigenMapMatMult(D, parlist[[i]]))
+      }
     }
   }
   colnames(hlayers[[i]]) <- paste0('nodes',1:ncol(hlayers[[i]]))
@@ -35,3 +52,4 @@ calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers
   }
   return(hlayers)
 }
+

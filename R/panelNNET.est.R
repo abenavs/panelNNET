@@ -5,33 +5,52 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
          , batchsize, maxstopcounter, OLStrick, initialization, dropout_hidden
          , dropout_input, convolutional, ...){
 
-# y = dat$yield
-# X = dat[,grepl('tmax|tmin|wspd|relh|radiation|lat|lon|prc|prop_irr|rotation|tillage|friability',colnames(dat))]
-# param = Xp
-# hidden_units = 10
-# parapen = rep(0, ncol(param))
-# fe_var = dat$reap
-# maxit = 10
-# lam = .1
-# time_var = dat$year
-# verbose = T
-# gravity = 1.01
-# convtol = 1e-5
-# activation = 'lrelu'
-# start_LR = .001
-# parlist = NULL
-# OLStrick = TRUE
-# initialization = 'HZRS'
-# maxit = 100
-# report_interval = 5
-# RMSprop = T
-# start.LR <- .01
-# maxstopcounter <- 10
-# batchsize = nrow(X)
-# dropout_hidden <- dropout_input <- 1
-# datestring <- substr(colnames(X), nchar(colnames(X))-4, nchar(colnames(X)))
-# topology <- as.POSIXlt(datestring, format = "%m_%d")$yday
-# convolutional <- list(Nconv = 5, span = 5, step = 5, topology = topology)
+y = dat$yield
+X = dat[,grepl('tmax|tmin|wspd|relh|radiation|lat|lon|prc|prop_irr|rotation|tillage|friability',colnames(dat))]
+param = Xp
+hidden_units = 10
+parapen = rep(0, ncol(param))
+fe_var = dat$reap
+maxit = 10
+lam = .1
+time_var = dat$year
+verbose = T
+gravity = 1.01
+convtol = 1e-5
+activation = 'lrelu'
+start_LR = .001
+parlist = NULL
+OLStrick = TRUE
+initialization = 'HZRS'
+maxit = 100
+report_interval = 5
+RMSprop = T
+start.LR <- .01
+maxstopcounter <- 10
+batchsize = nrow(X)
+dropout_hidden <- dropout_input <- 1
+datestring <- substr(colnames(X), nchar(colnames(X))-4, nchar(colnames(X)))
+topology <- as.POSIXlt(datestring, format = "%m_%d")$yday
+convolutional <- list(Nconv = 5, 
+                      span = 5, 
+                      step = 5, 
+                      topology = topology
+                      )
+coordinates <- dat[, c("lat", "lon")]
+clusters <- list(regex = "tmin04",
+                 clusters = NULL,
+                 FUN = mean,
+                 degree = 3,
+                 n_cluster = 4
+)
+
+
+
+
+# X <- data.frame(v1 = rnorm(10), v2 = rnorm(10), v3 = rnorm(10))
+# fac <- c(rep("A",2), rep("B", 4), rep("C", 4))
+# facdum <- model.matrix(~fac-1)
+# t(KhatriRao(t(X), t(facdum)))
 
   
   ##########
@@ -56,116 +75,18 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
     return(as.numeric(yhat))
   }
 
-  calc_grads<- function(plist, hlay = NULL, yhat = NULL, curBat = NULL, droplist = NULL, dropinp = NULL){
-    #subset the parameters and hidden layers based on the droplist
-    if (!is.null(droplist)){
-      Xd <- X[,dropinp, drop = FALSE]
-      if (nlayers > 1){
-        #drop from parameter list emanating from input
-        plist[[1]] <- plist[[1]][c(TRUE,dropinp),droplist[[1]]]
-        # drop from subsequent parameter matrices
-        if (nlayers>2){
-          for (i in 2:(nlayers-1)){
-            plist[[i]] <- plist[[i]][c(TRUE, droplist[[i-1]]), droplist[[i]], drop = FALSE]
-          }
-        }
-        plist[[nlayers]] <- plist[[nlayers]][c(TRUE, droplist[[nlayers-1]]), 
-                                             droplist[[nlayers]][(ncol(param)+1):length(droplist[[nlayers]])], 
-                                             drop = FALSE]
-      } else { #for one-layer networks
-        #drop from parameter list emanating from input
-        plist[[1]] <- plist[[1]][c(TRUE,dropinp),
-                                 droplist[[nlayers]][(ncol(param)+1):length(droplist[[nlayers]])], 
-                                 drop = FALSE]
-      }
-      # manage parametric/nonparametric distinction in the top layer
-      plist$beta <- plist$beta[droplist[[nlayers]][(ncol(param)+1):length(droplist[[nlayers]])]]
-      
-    } else {Xd <- X}#for use below...  X should be safe given scope, but extra assignment is cheap here
-    if (!is.null(curBat)){CB <- function(x){x[curBat,,drop = FALSE]}} else {CB <- function(x){x}}
-    if (is.null(yhat)){yhat <- getYhat(plist, hlay = hlay)}
-    NL <- nlayers + as.numeric(!is.null(convolutional))
-    grads <- grad_stubs <- vector('list', NL + 1)
-    grad_stubs[[length(grad_stubs)]] <- getDelta(CB(as.matrix(y)), yhat)
-    for (i in NL:1){
-      if (i == NL){outer_param = as.matrix(c(plist$beta))} else {outer_param = plist[[i+1]]}
-      if (i == 1){lay = CB(Xd)} else {lay= CB(hlay[[i-1]])}
-      #add the bias
-      lay <- cbind(1, lay) #add bias to the hidden layer
-      if (i != NL){outer_param <- outer_param[-1,, drop = FALSE]}      #remove parameter on upper-layer bias term
-      grad_stubs[[i]] <- activ_prime(lay %*% plist[[i]]) * grad_stubs[[i+1]] %*% Matrix::t(outer_param)
-    }
-    # multiply the gradient stubs by their respective layers to get the actual gradients
-    # first coerce them to regular matrix classes so that the C code for matrix multiplication can speed things up
-    grad_stubs <- lapply(grad_stubs, as.matrix)
-    hlay <- lapply(hlay, as.matrix)
-    for (i in 1:length(grad_stubs)){
-      if (i == 1){lay = as.matrix(CB(Xd))} else {lay= CB(hlay[[i-1]])}
-      if (i != length(grad_stubs) | is.null(fe_var)){# don't add bias term to top layer when there are fixed effects present
-        lay <- cbind(1, lay) #add bias to the hidden layer
-      }
-      grads[[i]] <- eigenMapMatMult(t(lay), as.matrix(grad_stubs[[i]]))
-    }
-    # if using dropout, reconstitute full gradient
-    if (!is.null(droplist)){
-      emptygrads <- lapply(parlist, function(x){x*0})
-      # bottom weights
-      if (nlayers > 1){
-        emptygrads[[1]][c(TRUE,dropinp),droplist[[1]]] <- grads[[1]]
-        if (nlayers>2){
-          for (i in 2:(nlayers-1)){
-            emptygrads[[i]][c(TRUE, droplist[[i-1]]), droplist[[i]]] <- grads[[i]]
-          }
-        }
-        emptygrads[[nlayers]][c(TRUE, droplist[[nlayers-1]]), 
-                               droplist[[nlayers]][(ncol(param)+1):length(droplist[[nlayers]])]] <- grads[[nlayers]]
-      } else { #for one-layer networks
-        emptygrads[[1]][c(TRUE,dropinp),
-                        droplist[[1]][(ncol(param)+1):length(droplist[[1]])]] <- grads[[1]]
-      }
-      #top-level
-      emptygrads$beta <- emptygrads$beta_param <- NULL
-      emptygrads[[nlayers + 1]] <- matrix(rep(0, length(parlist$beta)+length(parlist$beta_param))) #empty
-      emptygrads[[nlayers + 1]][droplist[[nlayers]]] <- grads[[nlayers + 1]]
-      # all done
-      grads <- emptygrads
-    }
-    #process the gradients for the convolutional layers
-    if (!is.null(convolutional)){
-      if (!is.null(droplist)){
-        warning("dropout not yet made to work with conv nets")
-      }
-      #mask out the areas not in use
-      gg <- grads[[1]] * convMask
-      #gradients for conv layer.  pooling via rowMeans
-      grads_convParms <- foreach(i = 1:convolutional$Nconv) %do% {
-        idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
-        rowMeans(foreach(j = idx, .combine = cbind) %do% {x <- gg[,j]; x[x!=0][-1]})
-      }
-      grads_convBias <- foreach(i = 1:convolutional$Nconv, .combine = c) %do% {
-        idx <- (1+N_TV_layers*(i-1)):(N_TV_layers*i)
-        mean(gg[1,idx])
-      }
-      # make the layer
-      convGrad <- makeConvLayer(grads_convParms, grads_convBias)
-      #set the gradients on the time-invariant terms to zero
-      convGrad[,(N_TV_layers * convolutional$Nconv+1):ncol(convGrad)] <- 0
-      grads[[1]] <- convGrad
-    }
-    return(grads)
-  }
-
   makeConvLayer <- function(convParms, convBias){
     # time-varying portion
     TV <- foreach(i = 1:convolutional$Nconv, .combine = cbind) %do% {
       apply(convMask[,1:N_TV_layers], 2, function(x){# this assumes that the feature detectors have identical shapes
-        x[x!=0][-1] <- convParms[[i]]
-        x[1] <- convBias[i]
+        x[x!=0] <- convParms[[i]]
+        x <- c(convBias[i], x)
         return(x)
       })
     }
-    NTV <- convMask[,colnames(convMask) %ni% convolutional$topology]
-    return(Matrix(cbind(TV, NTV)))
+    # NTV <- convMask[,colnames(convMask) %ni% convolutional$topology]
+    # return(Matrix(cbind(TV, NTV)))
+    return(Matrix(TV))
   }
   
   ###########################
@@ -209,7 +130,7 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
     # For each convolutional "column", initialize the single parameter vector that will be shared among columns
     if (is.null(convolutional$convParms)){
       convParms <- convolutional$convParms <- foreach(i = 1:convolutional$Nconv) %do% {
-        rnorm(sum(convMask[-1,1]), sd = 2/sqrt(sum(convMask[-1,1])))
+        rnorm(sum(convMask[,1]), sd = 2/sqrt(sum(convMask[,1])))
       }
     }
     # Initialize convolutional layer bias, if not present
@@ -222,15 +143,36 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
       convParMat <- convolutional$convParMat <- makeConvLayer(convParms, convBias)
     }
   }
+  # compute the spatial clusters, if not NULL
+  if (!is.null(clusters)){
+    # make sure that convolutonal isn't NULL
+    if (is.null(convolutional)){
+      stop("spatial conv nets without temporal convolution aren't supported yet")
+    }
+    spatialClusters <- clusters$spatialClusters <- makeSpatialClusters(clusters, X, coordinates)
+    # this can be removed -- it is handled in the chunk below that handles the parlist generation
+    # # initialize the spatial convolution parameters
+    # nsp <- length(unique(spatialClusters)) * #number of clusters, times...
+    #         ncol(convMask) * # number of time-varying variables, times...
+    #         hidden_units[1]
+    # sp_param <- matrix(rnorm(nsp, sd = 2/sqrt(nsp)), ncol = hidden_units[1])
+  }
   #get starting weights, either randomly or from a specified parlist
   if (is.null(parlist)){#random starting weights
+    # start with the fully-connected, hidden units
     parlist <- vector('list', nlayers)
     for (i in 1:nlayers){
       if (i == 1){
         if (is.null(convolutional)){
           D <- ncol(X)
         } else {
-          D <- ncol(convolutional$convParMat)
+          if (is.null(clusters)){
+            D <- ncol(convolutional$convParMat)
+          } else {
+            # if spatially convoluted, dimension is number of spatial clusters times number of conv layers, 
+            # plus number of time-invariant variables
+            D <- length(unique(spatialClusters)) * ncol(convMask) + sum(is.na(topology)) 
+          }
         }
       } else {
         D <- hidden_units[i-1]
@@ -249,10 +191,6 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
     }
     # vector of parameters at the top layer
     parlist$beta <- runif(hidden_units[i], -ubounds, ubounds)
-    # add convolutional layer on the bottom
-    if (!is.null(convolutional)){
-      parlist <- c(convolutional$convParMat, parlist)
-    }
     # parameters on parametric terms
     if (is.null(param)){
       parlist$beta_param <-  NULL
@@ -261,6 +199,16 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
     }
     #add the bias term/intercept onto the front, if there are no FE's
     parlist$beta_param <- c(runif(is.null(fe_var), -ubounds, ubounds), parlist$beta_param)
+    # initialize the spatial convolution parameters
+    if (!is.null(clusters)){
+      names(parlist)[[1]] <- "spatial"
+    }
+    # add convolutional layer(s) on the bottom
+    if (!is.null(convolutional)){
+      parlist <- c(convolutional$convParMat, parlist)
+      names(parlist)[[1]] <- "temporal"
+    }
+
     #if there are no FE's, append a 0 to the front of the parapen vec, to leave the intercept unpenalized
     if(is.null(fe_var)){
       parapen <- c(0, parapen)
@@ -269,8 +217,10 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
   #compute hidden layers given parlist
   hlayers <- calc_hlayers(parlist, X = X, param = param, 
                           fe_var = fe_var, nlayers = nlayers, 
-                          convolutional = convolutional, activation = activation)
+                          convolutional = convolutional, activation = activation,
+                          clusters = clusters)
   #calculate ydm and put it in global...
+  # note oct 12: I don't remember why this is in global.  Maybe try moving back to <-?
   if (!is.null(fe_var)){
     ydm <<- demeanlist(y, list(fe_var)) 
   }
@@ -513,6 +463,9 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
     , dropout_hidden = dropout_hidden, dropout_input = dropout_input)
   return(output) # list 
 }
+
+
+
 
 
 
