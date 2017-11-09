@@ -5,44 +5,44 @@ function(y, X, hidden_units, fe_var, maxit, lam, time_var, param, parapen, parli
          , batchsize, maxstopcounter, OLStrick, initialization, dropout_hidden
          , dropout_input, convolutional, ...){
 
-y = dat$yield
-X = dat[,grepl('tmax|tmin|wspd|relh|radiation|lat|lon|prc|prop_irr|rotation|tillage|friability',colnames(dat))]
-param = Xp
-hidden_units = 10
-parapen = rep(0, ncol(param))
-fe_var = dat$reap
-maxit = 10
-lam = .1
-time_var = dat$year
-verbose = T
-gravity = 1.01
-convtol = 1e-5
-activation = 'lrelu'
-start_LR = .001
-parlist = NULL
-OLStrick = TRUE
-initialization = 'HZRS'
-maxit = 100
-report_interval = 5
-RMSprop = T
-start.LR <- .01
-maxstopcounter <- 10
-batchsize = nrow(X)
-dropout_hidden <- dropout_input <- 1
-datestring <- substr(colnames(X), nchar(colnames(X))-4, nchar(colnames(X)))
-topology <- as.POSIXlt(datestring, format = "%m_%d")$yday
-convolutional <- list(Nconv = 5, 
-                      span = 5, 
-                      step = 5, 
-                      topology = topology
-                      )
-coordinates <- dat[, c("lat", "lon")]
-clusters <- list(regex = "tmin04",
-                 clusters = NULL,
-                 FUN = mean,
-                 degree = 3,
-                 n_cluster = 4
-)
+#y = dat$yield
+#X = dat[,grepl('tmax|tmin|wspd|relh|radiation|lat|lon|prc|prop_irr|rotation|tillage|friability',colnames(dat))]
+#param = Xp
+#hidden_units = 10
+#parapen = rep(0, ncol(param))
+#fe_var = dat$reap
+#maxit = 10
+#lam = .1
+#time_var = dat$year
+#verbose = T
+#gravity = 1.01
+#convtol = 1e-5
+#activation = 'lrelu'
+#start_LR = .001
+#parlist = NULL
+#OLStrick = TRUE
+#initialization = 'HZRS'
+#maxit = 100
+#report_interval = 5
+#RMSprop = T
+#start.LR <- .01
+#maxstopcounter <- 10
+#batchsize = nrow(X)
+#dropout_hidden <- dropout_input <- 1
+#datestring <- substr(colnames(X), nchar(colnames(X))-4, nchar(colnames(X)))
+#topology <- as.POSIXlt(datestring, format = "%m_%d")$yday
+#convolutional <- list(Nconv = 5, 
+#                      span = 5, 
+#                      step = 5, 
+#                      topology = topology
+#                      )
+#coordinates <- dat[, c("lat", "lon")]
+#clusters <- list(regex = "tmin04",
+#                 clusters = NULL,
+#                 FUN = mean,
+#                 degree = 3,
+#                 n_cluster = 4
+#)
 
 
 
