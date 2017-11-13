@@ -1,5 +1,6 @@
 
-calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers = nlayers, convolutional, activation, clusters = NULL){
+calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, 
+                         nlayers = nlayers, convolutional, activation, clusters = NULL){
   if (activation == 'tanh'){
     activ <- tanh
   }
@@ -17,7 +18,7 @@ calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers
   NL <- nlayers
   if (!is.null(convolutional)){NL <- NL+1}
   for (i in 1:NL){
-    if (!is.null(convolutional) & i < 3){
+    if (!is.null(convolutional) & i < 3){ # i will be 3 or more whn moving past convolutions
       if (i == 1){
         D <- cbind(1, X[, !is.na(topology)])
         hlayers[[i]] <- activ(D %*% parlist$temporal)
@@ -38,6 +39,7 @@ calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers
       if ("dgcMatrix" %in% c(unlist(class(D)), unlist(class(parlist[[i]])))){ #if/else sparse, Matrix vs RcppEigen
         hlayers[[i]] <- activ(D %*% parlist[[i]])
       } else {
+        if ("dgeMatrix" %in% c(unlist(class(D)))){D <- as.matrix(D)}
         hlayers[[i]] <- activ(eigenMapMatMult(D, parlist[[i]]))
       }
     }

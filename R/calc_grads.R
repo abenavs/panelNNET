@@ -36,6 +36,7 @@ curBat <- droplist <- NULL
   for (i in NL:1){
     if (i == NL){outer_param = as.matrix(c(plist$beta))} else {outer_param = plist[[i+1]]}
     if (i == 1){lay = CB(Xd)} else {lay= CB(hlay[[i-1]])}
+    # for temporal layers, only pass the time-varying variables
     if (names(parlist)[i] == "temporal"){
       if (!is.null(droplist)){
         stop("Dropout and convolutional are not yet compatible")
@@ -51,17 +52,26 @@ curBat <- droplist <- NULL
     #add the bias
     lay <- cbind(1, lay) #add bias to the hidden layer
     if (i != NL){outer_param <- outer_param[-1,, drop = FALSE]}      #remove parameter on upper-layer bias term
-    # inner term
-    inner <- activ_prime(lay %*% plist[[i]])
+    # inner term.  use eigen if not sparse
+    # if ("dgcMatrix" %ni% c(unlist(class(lay)))){
+    #   lay <- as.matrix(lay)
+    #   inner <- eigenMapMatMult(lay, plist[[i]])
+    # } else {
+    #   inner <- lay %*% plist[[i]]
+    # }
+    inner <- MatMult(lay, plist[[i]])
     if (i == 1 & !is.null(clusters)){ #if spatial conv
       inner <- cbind(t(KhatriRao(t(inner), t(facdum))), NTV)
     }
-    grad_stubs[[i]] <- inner * grad_stubs[[i+1]] %*% Matrix::t(outer_param)  ULTIMATELY THE GRAD STUB SHOULD BE 5873 X 240.  THE PROBLEM IS THAT THE OUTER PARAM IS TOO BIG.  IT NEEDS TO LOSE THE PARAMETERS ASSOCIATED WITH THE NTV VARIABLES, AND IT NEEDS TO HAVE SOME OPERATION DONE TO POOL THE SPATIAL EXPANSION
+    grad_stubs[[i]] <- inner * MatMult(grad_stubs[[i+1]], Matrix::t(outer_param))
+    # ULTIMATELY THE GRAD STUB SHOULD BE 5873 X 240.  THE PROBLEM IS THAT THE OUTER PARAM IS TOO BIG.  IT NEEDS TO LOSE THE PARAMETERS ASSOCIATED WITH THE NTV VARIABLES, AND IT NEEDS TO HAVE SOME OPERATION DONE TO POOL THE SPATIAL EXPANSION
   }
   # multiply the gradient stubs by their respective layers to get the actual gradients
   # first coerce them to regular matrix classes so that the C code for matrix multiplication can speed things up
   
-REALLY NOT SURE ABOUT HOW THE LOWEST GRAD STUB IS MADE
+
+  
+  REALLY NOT SURE ABOUT HOW THE LOWEST GRAD STUB IS MADE
 IN THE FORWARD PASS, I DO 
   TV <- t(KhatriRao(t(hlayers[[i-1]]), t(facdum)))
   NTV <- X[, is.na(topology)]
