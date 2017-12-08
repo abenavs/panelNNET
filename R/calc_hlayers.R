@@ -1,5 +1,6 @@
 
-calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers = nlayers, convolutional, activation){
+calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, 
+                         nlayers = nlayers, convolutional, activation, dropout_hidden, dropout_input){
   if (activation == 'tanh'){
     activ <- tanh
   }
@@ -15,6 +16,8 @@ calc_hlayers <- function(parlist, X = X, param = param, fe_var = fe_var, nlayers
   hlayers <- vector('list', nlayers)
   for (i in 1:(nlayers + !is.null(convolutional))){
     if (i == 1){D <- X} else {D <- hlayers[[i-1]]}
+    dprob <- ifelse(i == 1, dropout_input, dropout_hidden) # dropout probability
+    D <- sweep(D, 2, rbinom(ncol(D), 1, dprob), FUN = "*") / dprob # Inverted Dropout
     D <- cbind(1, D) #add bias
     # make sure that the time-invariant variables pass through the convolutional layer without being activated
     if (is.null(convolutional) | i > 1){
