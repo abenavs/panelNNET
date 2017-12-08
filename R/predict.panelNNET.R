@@ -121,8 +121,8 @@ predfun <- function(plist, obj, newX = NULL, fe.newX = NULL, new.param = NULL,
                     nlayers = length(obj$hidden_layers)-!is.null(obj$convolutional),# subtract off 1 when convolutional because "nlayers" doesn't include conv layer
                     convolutional = obj$convolutional,
                     activation = obj$activation,
-                    dropout_hidden = obj$dropout_hidden,
-                    dropout_input = obj$dropout_input)
+                    dropout_hidden = 1,
+                    dropout_input = 1)
   D <- HL[[length(HL)]]
 
   if (return_toplayer == TRUE){
