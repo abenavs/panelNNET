@@ -36,7 +36,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   # LR_slowing_rate <- 2
   # gravity = 1.1
   # interaction_var <- dat$prop_irr
-  
+
   ##########
   #Define internal functions
   getYhat <- function(pl, hlay = NULL){ 
@@ -108,7 +108,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
           int_param <- as.matrix(c(plist$beta[grepl("int", names(plist$beta))]))
         }
       } else {
-        outer_param <- plist[[i+1]]
+        outer_param <- int_param <- plist[[i+1]]
       }
       if (i == 1){
         lay <- CB(Xd)
@@ -117,7 +117,12 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       }
       #add the bias
       lay <- cbind(1, lay) #add bias to the hidden layer
-      if (i != NL){outer_param <- outer_param[-1,, drop = FALSE]}      #remove parameter on upper-layer bias term
+      if (i != NL){#remove parameter on upper-layer bias term
+        outer_param <- outer_param[-1,, drop = FALSE]
+        if (!is.null(interaction_var)){
+          int_param <- int_param[-1,, drop = FALSE]
+        }
+      }      
       lower <- MatMult(lay, plist[[i]])
       grad_stubs[[i]] <- activ_prime(lower) * MatMult(grad_stubs[[i+1]], Matrix::t(outer_param))
       int_stubs[[i]] <- activ_prime(lower) * MatMult(int_stubs[[i+1]], Matrix::t(int_param))
