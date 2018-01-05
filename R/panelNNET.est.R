@@ -5,37 +5,37 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
          , batchsize, maxstopcounter, OLStrick, initialization, dropout_hidden
          , dropout_input, convolutional, LR_slowing_rate, ...){
 
-  y = dat$logyield
-  X = X
-  hidden_units = c(10, 5)
-  fe_var = dat$fips
-  maxit = 1000
-  lam = 1
-  time_var = dat$year
-  param = Xp
-  verbose = T
-  report_interval = 1
-  gravity = 1.1
-  convtol = 1e-5
-  activation = 'lrelu'
-  start_LR = .0001
-  parlist = NULL
-  OLStrick = T
-  batchsize = nrow(X)
-  maxstopcounter = 10
-  parapen = rep(1, ncol(Xp))
-  initialization = "HZRS"
-  dropout_hidden = 1
-  dropout_input = 1
-  RMSprop = T
-  start_LR <- .001
-  maxstopcounter <- 10
-  batchsize = round(nrow(X)/100)
-  convolutional <- NULL
-  parapen <- rep(1, ncol(Xp))
-  LR_slowing_rate <- 2
-  gravity = 1.1
-  interaction_var <- dat$prop_irr
+  # y = dat$logyield
+  # X = X
+  # hidden_units = c(10, 5)
+  # fe_var = dat$fips
+  # maxit = 1000
+  # lam = 1
+  # time_var = dat$year
+  # param = Xp
+  # verbose = T
+  # report_interval = 1
+  # gravity = 1.1
+  # convtol = 1e-5
+  # activation = 'lrelu'
+  # start_LR = .0001
+  # parlist = NULL
+  # OLStrick = T
+  # batchsize = nrow(X)
+  # maxstopcounter = 10
+  # parapen = rep(1, ncol(Xp))
+  # initialization = "HZRS"
+  # dropout_hidden = 1
+  # dropout_input = 1
+  # RMSprop = T
+  # start_LR <- .001
+  # maxstopcounter <- 10
+  # batchsize = round(nrow(X)/100)
+  # convolutional <- NULL
+  # parapen <- rep(1, ncol(Xp))
+  # LR_slowing_rate <- 2
+  # gravity = 1.1
+  # interaction_var <- dat$prop_irr
   
   ##########
   #Define internal functions
@@ -120,7 +120,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       if (i != NL){outer_param <- outer_param[-1,, drop = FALSE]}      #remove parameter on upper-layer bias term
       lower <- MatMult(lay, plist[[i]])
       grad_stubs[[i]] <- activ_prime(lower) * MatMult(grad_stubs[[i+1]], Matrix::t(outer_param))
-      int_stubs[[i]] <- activ_prime(lower) * MatMult(int_stubs[[i+1]], Matrix::t(outer_param))
+      int_stubs[[i]] <- activ_prime(lower) * MatMult(int_stubs[[i+1]], Matrix::t(int_param))
     }
     # multiply the gradient stubs by their respective layers to get the actual gradients
     # first coerce them to regular matrix classes so that the C code for matrix multiplication can speed things up

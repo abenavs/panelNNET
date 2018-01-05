@@ -46,8 +46,12 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   if (inherits(b, "error")){
     b <- as.numeric(MatMult(MatMult(ginv(MatMult(t(Zdm),Zdm) + diag(D)*as.numeric(newlam)), t(Zdm)), targ))
   }
+  names_beta <- names(parlist$beta)
+  names_beta_param <- names(parlist$beta_param)
   parlist$beta_param <- b[1:length(parlist$beta_param)]
   parlist$beta <- b[(length(parlist$beta_param)+1):length(b)]
+  names(parlist$beta) <- names_beta
+  names(parlist$beta_param) <- names_beta_param
   return(parlist)
 }
 
