@@ -1,5 +1,5 @@
 
-OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen){
+OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, interaction_var){
   # parlist <- pnn$parlist
   # hidden_layers <- pnn$hidden_layers
   # y = pnn$y
@@ -10,7 +10,18 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen){
   constraint <- sum(c(parlist$beta_param*parapen, parlist$beta)^2)
   #getting implicit regressors depending on whether regression is panel
   if (!is.null(fe_var)){
-    Zdm <- demeanlist(as.matrix(hidden_layers[[length(hidden_layers)]]), list(fe_var))
+    if (!is.null(interaction_var)){
+      hlay <- hidden_layers
+      intZ <- sweep(hidden_layers[[length(hidden_layers)]], 1, interaction_var, "*")
+      colnames(intZ) <- paste0("i_",colnames(intZ))
+      hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("param", colnames(intZ))],
+                                    hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("nodes", colnames(intZ))])
+      Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
+    } else {
+      Zdm <- demeanlist(as.matrix(hidden_layers[[length(hidden_layers)]]), list(fe_var))
+    }
     targ <- demeanlist(y, list(fe_var))
   } else {
     Zdm <- hidden_layers[[length(hidden_layers)]]
@@ -23,6 +34,7 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen){
   } else {
     pp <- parapen #parapen
   }
+  if (!is.null(interaction_var)){pp <- rep(pp, 2)}
   D[1:length(pp)] <- D[1:length(pp)]*pp #incorporate parapen into diagonal of covmat
   # find implicit lambda
   b <- c(parlist$beta_param, parlist$beta)
