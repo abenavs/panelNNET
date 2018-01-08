@@ -21,7 +21,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   # start_LR = .0001
   # parlist = NULL
   # OLStrick = T
-  # batchsize = nrow(X)
+  # batchsize = 256
   # maxstopcounter = 10
   # parapen = rep(1, ncol(Xp))
   # initialization = "HZRS"
@@ -453,12 +453,14 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       hlayers <- calc_hlayers(parlist, X = X, param = param, fe_var = fe_var, 
                               nlayers = nlayers, convolutional = convolutional, activ = activation)
       # OLS trick!
+      PT <- proc.time()
       if (OLStrick == TRUE){
         parlist <- OLStrick_function(parlist = parlist, hidden_layers = hlayers, y = y
                                      , fe_var = fe_var, lam = lam, parapen = parapen
                                      , interaction_var = interaction_var)
       }
-
+      proc.time() - PT
+      
       #update yhat
       yhat <- getYhat(parlist, hlay = hlayers)
       mse <- mean((y-yhat)^2)
