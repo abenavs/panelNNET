@@ -104,7 +104,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       if (i == NL){
         if (is.null(interaction_var)){
           outer_param <- as.matrix(c(plist$beta))
-        } else { # if using an interaction, only use the main betas, not those for the interaction term.  Interaction term gradients dealt with below
+        } else { 
           outer_param <- as.matrix(c(plist$beta[grepl("main", names(plist$beta))]))
           int_param <- as.matrix(c(plist$beta[grepl("int", names(plist$beta))]))
         }
@@ -132,7 +132,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
     # first coerce them to regular matrix classes so that the C code for matrix multiplication can speed things up
     grad_stubs <- lapply(grad_stubs, as.matrix)
     hlay <- lapply(hlay, as.matrix)
-    if (is.null(interaction_var)){ # add them together
+    if (is.null(interaction_var)){ 
       for (i in 1:length(grad_stubs)){
         if (i == 1){lay = as.matrix(CB(Xd))} else {lay= CB(hlay[[i-1]])}
         if (i != length(grad_stubs) | is.null(fe_var)){# don't add bias term to top layer when there are fixed effects present
@@ -147,11 +147,11 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
           lay <- cbind(1, lay) #add bias to the hidden layer
         }
         if (i == length(grad_stubs)){
-          maingrads <- as.numeric(MatMult(t(lay), as.matrix(grad_stubs[[i]]))) #param is first
+          maingrads <- as.numeric(MatMult(t(lay), as.matrix(grad_stubs[[i]]))) 
           intgrads <- as.numeric(MatMult(t(lay), as.matrix(int_stubs[[i]])))
-          grads[[i]] <- c(maingrads[1:ncol(param)], #first come parametric terms, then nodes
-                          intgrads[1:ncol(param)],
+          grads[[i]] <- c(maingrads[1:ncol(param)], #first come main effects terms, then interactions
                           maingrads[(ncol(param)+1):length(maingrads)],
+                          intgrads[1:ncol(param)],
                           intgrads[(ncol(param)+1):length(intgrads)]
                         )
         } else {
@@ -454,14 +454,12 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       hlayers <- calc_hlayers(parlist, X = X, param = param, fe_var = fe_var, 
                               nlayers = nlayers, convolutional = convolutional, activ = activation)
       # OLS trick!
-      PT <- proc.time()
       if (OLStrick == TRUE){
         parlist <- OLStrick_function(parlist = parlist, hidden_layers = hlayers, y = y
                                      , fe_var = fe_var, lam = lam, parapen = parapen
                                      , interaction_var = interaction_var)
       }
-      proc.time() - PT
-      
+
       #update yhat
       yhat <- getYhat(parlist, hlay = hlayers)
       mse <- mean((y-yhat)^2)
