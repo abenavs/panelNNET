@@ -15,8 +15,8 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
       intZ <- sweep(hidden_layers[[length(hidden_layers)]], 1, interaction_var, "*")
       colnames(intZ) <- paste0("i_",colnames(intZ))
       hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
-                                    intZ[,grepl("param", colnames(intZ))],
                                     hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("param", colnames(intZ))],
                                     intZ[,grepl("nodes", colnames(intZ))])
       Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
     } else {

@@ -55,8 +55,8 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
         intZ <- sweep(hlay[[length(hlay)]], 1, interaction_var, "*")
         colnames(intZ) <- paste0("i_",colnames(intZ))
         hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
-                                      intZ[,grepl("param", colnames(intZ))],
                                       hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
+                                      intZ[,grepl("param", colnames(intZ))],
                                       intZ[,grepl("nodes", colnames(intZ))])
       }
       Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
@@ -609,8 +609,8 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       intZ <- sweep(hlay[[length(hlay)]], 1, interaction_var, "*")
       colnames(intZ) <- paste0("i_",colnames(intZ))
       hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
-                                    intZ[,grepl("param", colnames(intZ))],
                                     hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("param", colnames(intZ))],
                                     intZ[,grepl("nodes", colnames(intZ))])
     }
     Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
