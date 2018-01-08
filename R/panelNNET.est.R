@@ -621,7 +621,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
     , msevec = msevec, RMSprop = RMSprop, convtol = convtol
     , grads = grads, activation = activation, parapen = parapen
     , batchsize = batchsize, initialization = initialization, convolutional = convolutional
-    , dropout_hidden = dropout_hidden, dropout_input = dropout_input)
+    , dropout_hidden = dropout_hidden, dropout_input = dropout_input, interaction_var = interaction_var)
   return(output) # list 
 }
 

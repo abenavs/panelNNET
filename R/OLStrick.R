@@ -6,6 +6,7 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   # fe_var <- pnn$fe_var
   # lam <- pnn$lam
   # parapen <- pnn$parapen
+  # interaction_var = dat$prop_irr[dat$year %in% samp]
   # hidden_layers <- hlayers
   constraint <- sum(c(parlist$beta_param*parapen, parlist$beta)^2)
   #getting implicit regressors depending on whether regression is panel
@@ -34,6 +35,7 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   } else {
     pp <- parapen #parapen
   }
+  pp <- c(pp, rep(0, length(parlist$beta[!grepl("int", names(parlist$beta))])))
   if (!is.null(interaction_var)){pp <- rep(pp, 2)}
   D[1:length(pp)] <- D[1:length(pp)]*pp #incorporate parapen into diagonal of covmat
   # find implicit lambda
@@ -50,16 +52,12 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   }
   names_beta <- names(parlist$beta)
   names_beta_param <- names(parlist$beta_param)
-  parlist$beta_param <- b[1:length(parlist$beta_param)]
-  parlist$beta <- b[(length(parlist$beta_param)+1):length(b)]
+  parlist$beta_param <- b[grep("param", colnames(hlay[[length(hlay)]]))]
+  parlist$beta <- b[grep("nodes", colnames(hlay[[length(hlay)]]))]
   names(parlist$beta) <- names_beta
   names(parlist$beta_param) <- names_beta_param
   return(parlist)
 }
-
-
-
-
 
 OLStrick_function_old <- function(parlist, hidden_layers, y, fe_var, lam, parapen){
   # parlist <- pnn$parlist
