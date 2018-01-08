@@ -604,12 +604,18 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   if(is.null(fe_var)){
     fe_output <- NULL
   } else {
-    Zdm <- demeanlist(as.matrix(hlayers[[length(hlayers)]]), list(fe_var))
-    Zdm <- Matrix(Zdm)
-    fe <- (y-ydm) - as.matrix(hlayers[[length(hlayers)]]-Zdm) %*% as.matrix(c(
-        parlist$beta_param, parlist$beta
-    ))
-  fe_output <- data.frame(fe_var, fe)
+    hlay <- hlayers
+    if (!is.null(interaction_var)){
+      intZ <- sweep(hlay[[length(hlay)]], 1, interaction_var, "*")
+      colnames(intZ) <- paste0("i_",colnames(intZ))
+      hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("param", colnames(intZ))],
+                                    hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
+                                    intZ[,grepl("nodes", colnames(intZ))])
+    }
+    Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
+    fe <- (y-ydm) - MatMult(as.matrix(hlay[[length(hlay)]])-Zdm, as.matrix(c(pl$beta_param, pl$beta)))
+    fe_output <- data.frame(fe_var, fe)
   }
   output <- list(yhat = yhat, parlist = parlist, hidden_layers = hlayers
     , fe = fe_output, converged = conv, mse = mse, loss = loss, lam = lam, time_var = time_var
