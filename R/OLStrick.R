@@ -43,7 +43,7 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   newlam <-   1/constraint * MatMult(t(b), (Zty - MatMult(ZtZ,b)))
   newlam <- max(lam, newlam) #dealing with the case where you're not constrained
   #New top-level params
-  b <- tryCatch(as.numeric(MatMult(chol2inv(ZtZ + diag(D)*as.numeric(newlam)), Zty)),
+  b <- tryCatch(as.numeric(MatMult(solve(ZtZ + diag(D)*as.numeric(newlam)), Zty)),
                 error = function(e)e)
   if (inherits(b, "error")){
     b <- as.numeric(MatMult(ginv(ZtZ + diag(D)*as.numeric(newlam)), Zty))

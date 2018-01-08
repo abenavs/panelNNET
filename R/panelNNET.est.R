@@ -5,14 +5,14 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
          , batchsize, maxstopcounter, OLStrick, initialization, dropout_hidden
          , dropout_input, convolutional, LR_slowing_rate, ...){
 
-  # y = dat$logyield
-  # X = X
+  # y = dat$logyield[dat$year %in% samp]
+  # X = X[dat$year %in% samp,]
   # hidden_units = c(10, 5)
-  # fe_var = dat$fips
+  # fe_var = dat$fips[dat$year %in% samp]
   # maxit = 1000
   # lam = 1
-  # time_var = dat$year
-  # param = Xp
+  # time_var = dat$year[dat$year %in% samp]
+  # param = Xp[dat$year %in% samp,]
   # verbose = T
   # report_interval = 1
   # gravity = 1.1
@@ -23,7 +23,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   # OLStrick = T
   # batchsize = 256
   # maxstopcounter = 10
-  # parapen = rep(1, ncol(Xp))
+  # parapen = rep(1, ncol(Xp[dat$year %in% samp,]))
   # initialization = "HZRS"
   # dropout_hidden = 1
   # dropout_input = 1
@@ -35,8 +35,9 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   # parapen <- rep(1, ncol(Xp))
   # LR_slowing_rate <- 2
   # gravity = 1.1
-  # interaction_var <- dat$prop_irr
+  # interaction_var <- dat$prop_irr[dat$year %in% samp]
 
+  
   ##########
   #Define internal functions
   getYhat <- function(pl, hlay = NULL){ 
