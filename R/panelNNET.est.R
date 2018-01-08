@@ -614,7 +614,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
                                     intZ[,grepl("nodes", colnames(intZ))])
     }
     Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
-    fe <- (y-ydm) - MatMult(as.matrix(hlay[[length(hlay)]])-Zdm, as.matrix(c(pl$beta_param, pl$beta)))
+    fe <- (y-ydm) - MatMult(as.matrix(hlay[[length(hlay)]])-Zdm, as.matrix(c(parlist$beta_param, parlist$beta)))
     fe_output <- data.frame(fe_var, fe)
   }
   output <- list(yhat = yhat, parlist = parlist, hidden_layers = hlayers
