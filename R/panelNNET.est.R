@@ -423,8 +423,8 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
         G2 <- mapply('+', newG2, oldG2)
         # updates to beta
         uB <- LR/sqrt(G2[[length(G2)]]+1e-10) * grads[[length(grads)]]
-        updates$beta_param <- uB[1:length(parlist$beta_param)]
-        updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
+        updates$beta_param <- uB[grep("param", colnames(hlayers[[length(hlayers)]]))]
+        updates$beta <- uB[grep("nodes", colnames(hlayers[[length(hlayers)]]))]
         # updates to lower layers
         NL <- nlayers + as.numeric(!is.null(convolutional))
         for(i in NL:1){
