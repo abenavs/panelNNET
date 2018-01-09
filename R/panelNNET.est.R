@@ -23,20 +23,17 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
   # OLStrick = T
   # batchsize = 256
   # maxstopcounter = 10
-  # parapen = rep(1, ncol(Xp[dat$year %in% samp,]))
+  # parapen = c(0,0,rep(1, ncol(Xp)-2))
   # initialization = "HZRS"
   # dropout_hidden = 1
   # dropout_input = 1
   # RMSprop = T
-  # start_LR <- .001
+  # start_LR <- .0001
   # maxstopcounter <- 10
-  # batchsize = round(nrow(X)/100)
   # convolutional <- NULL
-  # parapen <- rep(1, ncol(Xp))
   # LR_slowing_rate <- 2
   # gravity = 1.1
-  # interaction_var <- dat$prop_irr[dat$year %in% samp]
-
+  # interaction_var = dat$prop_irr[dat$year %in% samp]
   
   ##########
   #Define internal functions
@@ -475,7 +472,6 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
                                      , fe_var = fe_var, lam = lam, parapen = parapen
                                      , interaction_var = interaction_var)
       }
-
       #update yhat
       yhat <- getYhat(parlist, hlay = hlayers)
       mse <- mean((y-yhat)^2)

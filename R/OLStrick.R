@@ -30,7 +30,6 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   } else {
     pp <- parapen #parapen
   }
-  pp <- c(pp, rep(0, length(parlist$beta[!grepl("int", names(parlist$beta))])))
   if (!is.null(interaction_var)){pp <- rep(pp, 2)}
   D[1:length(pp)] <- D[1:length(pp)]*pp #incorporate parapen into diagonal of covmat
   # find implicit lambda
