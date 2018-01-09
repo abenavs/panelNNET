@@ -429,14 +429,24 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
         G2 <- mapply('+', newG2, oldG2)
         # updates to beta
         uB <- LR/sqrt(G2[[length(G2)]]+1e-10) * grads[[length(grads)]]
-        updates$beta_param <- uB[grep("param", colnames(hlayers[[length(hlayers)]]))]
-        updates$beta <- uB[grep("nodes", colnames(hlayers[[length(hlayers)]]))]
+        if (is.null(interaction_var)){
+          updates$beta_param <- uB[grep("param", colnames(hlayers[[length(hlayers)]]))]
+          updates$beta <- uB[grep("nodes", colnames(hlayers[[length(hlayers)]]))]
+        } else {
+          paridx <- c(grep("param", colnames(hlayers[[length(hlayers)]])), 
+                      grep("param", colnames(hlayers[[length(hlayers)]]))+ ncol(hlayers[[length(hlayers)]]))
+          nodeidx <- c(grep("nodes", colnames(hlayers[[length(hlayers)]])), 
+                      grep("nodes", colnames(hlayers[[length(hlayers)]]))+ ncol(hlayers[[length(hlayers)]]))
+          updates$beta_param <- uB[paridx]
+          updates$beta <- uB[nodeidx]
+        }
         # updates to lower layers
         NL <- nlayers + as.numeric(!is.null(convolutional))
         for(i in NL:1){
           updates[[i]] <- LR/sqrt(G2[[i]]+1e-10) * grads[[i]]
         }
       } else { #if RMSprop == FALSE
+        stop("not yet implemented for interactions")
         uB <- LR * grads[[length(grads)]]
         updates$beta_param <- uB[1:length(parlist$beta_param)]
         updates$beta <- uB[ncol(param)+(1:length(parlist$beta))]
