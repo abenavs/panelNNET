@@ -12,14 +12,9 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   #getting implicit regressors depending on whether regression is panel
   if (!is.null(fe_var)){
     if (!is.null(interaction_var)){
-      hlay <- hidden_layers
       intZ <- sweep(hidden_layers[[length(hidden_layers)]], 1, interaction_var, "*")
-      colnames(intZ) <- paste0("i_",colnames(intZ))
-      hlay[[length(hlay)]] <- cbind(hlay[[length(hlay)]][,grepl("param", colnames(hlay[[length(hlay)]]))],
-                                    hlay[[length(hlay)]][,grepl("nodes", colnames(hlay[[length(hlay)]]))],
-                                    intZ[,grepl("param", colnames(intZ))],
-                                    intZ[,grepl("nodes", colnames(intZ))])
-      Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
+      xx <- cbind(hidden_layers[[length(hidden_layers)]], intZ)
+      Zdm <- demeanlist(as.matrix(xx), list(fe_var))
     } else {
       Zdm <- demeanlist(as.matrix(hidden_layers[[length(hidden_layers)]]), list(fe_var))
     }
@@ -39,7 +34,10 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   if (!is.null(interaction_var)){pp <- rep(pp, 2)}
   D[1:length(pp)] <- D[1:length(pp)]*pp #incorporate parapen into diagonal of covmat
   # find implicit lambda
-  b <- c(parlist$beta_param, parlist$beta)
+  b <- c(parlist$beta_param[grep("main", names(parlist$beta_param))], 
+         parlist$beta[grep("main", names(parlist$beta))],
+         parlist$beta_param[grep("int", names(parlist$beta_param))], 
+         parlist$beta[grep("int", names(parlist$beta))])
   Zty <- MatMult(t(Zdm), targ)
   ZtZ <- MatMult(t(Zdm), Zdm)
   newlam <-   1/constraint * MatMult(t(b), (Zty - MatMult(ZtZ,b)))
@@ -52,8 +50,10 @@ OLStrick_function <- function(parlist, hidden_layers, y, fe_var, lam, parapen, i
   }
   names_beta <- names(parlist$beta)
   names_beta_param <- names(parlist$beta_param)
-  parlist$beta_param <- b[grep("param", colnames(hlay[[length(hlay)]]))]
-  parlist$beta <- b[grep("nodes", colnames(hlay[[length(hlay)]]))]
+  parlist$beta_param <- c(b[grep("main", names(parlist$beta_param))], 
+                          b[grep("int", names(parlist$beta_param))])
+  parlist$beta <- c(b[grep("main", names(parlist$beta))], 
+                          b[grep("int", names(parlist$beta))])
   names(parlist$beta) <- names_beta
   names(parlist$beta_param) <- names_beta_param
   return(parlist)
