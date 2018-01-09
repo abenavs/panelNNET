@@ -61,15 +61,15 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
       }
       Zdm <- demeanlist(as.matrix(hlay[[length(hlay)]]), list(fe_var))
       fe <- (y-ydm) - MatMult(as.matrix(hlay[[length(hlay)]])-Zdm, as.matrix(c(pl$beta_param, pl$beta)))
-      yhat <- MatMult(hlay[[length(hlay)]], c(pl$beta_param[grepl("main", pl$beta_param)], 
-                                              pl$beta[grepl("main", pl$beta)],
-                                              pl$beta_param[grepl("int", pl$beta_param)], 
-                                              pl$beta[grepl("int", pl$beta)])) + fe    
+      yhat <- MatMult(hlay[[length(hlay)]], c(pl$beta_param[grepl("main", names(pl$beta_param))], 
+                                              pl$beta[grepl("main", names(pl$beta))],
+                                              pl$beta_param[grepl("int", names(pl$beta_param))], 
+                                              pl$beta[grepl("int", names(pl$beta))])) + fe    
     } else {
-      yhat <- MatMult(hlay[[length(hlay)]], c(pl$beta_param[grepl("main", pl$beta_param)], 
-                                              pl$beta[grepl("main", pl$beta)],
-                                              pl$beta_param[grepl("int", pl$beta_param)], 
-                                              pl$beta[grepl("int", pl$beta)]))
+      yhat <- MatMult(hlay[[length(hlay)]], c(pl$beta_param[grepl("main", names(pl$beta_param))], 
+                                              pl$beta[grepl("main", names(pl$beta))],
+                                              pl$beta_param[grepl("int", names(pl$beta_param))], 
+                                              pl$beta[grepl("int", names(pl$beta))]))
     }
     return(as.numeric(yhat))
   }
@@ -439,6 +439,7 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
                       grep("nodes", colnames(hlayers[[length(hlayers)]]))+ ncol(hlayers[[length(hlayers)]]))
           updates$beta_param <- uB[paridx]
           updates$beta <- uB[nodeidx]
+          SOMETHING WRONG HERE
         }
         # updates to lower layers
         NL <- nlayers + as.numeric(!is.null(convolutional))
