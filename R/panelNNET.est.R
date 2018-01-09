@@ -439,7 +439,6 @@ function(y, X, hidden_units, fe_var, interaction_var, maxit, lam, time_var, para
                       grep("nodes", colnames(hlayers[[length(hlayers)]]))+ ncol(hlayers[[length(hlayers)]]))
           updates$beta_param <- uB[paridx]
           updates$beta <- uB[nodeidx]
-          SOMETHING WRONG HERE
         }
         # updates to lower layers
         NL <- nlayers + as.numeric(!is.null(convolutional))
